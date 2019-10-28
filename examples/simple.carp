@@ -10,9 +10,9 @@
            data (Address.init @"Berlin" (Street.init 10 @"Paul-Lincke-Ufer"))
            frst (Prism.init (fn [s] (if (empty? s) (Maybe.Nothing) (Maybe.Just (head s))))
                             (fn [s c] (fmt "%c%s" c &(tail &s))))]
-    (println* &(~(Lens.get &com) &data))
-    (println* &(~(Lens.set &com) @&data @"no"))
-    (println* &(Lens.over &com @&data &(fn [a] (reverse &a))))
+    (println* &(Lens.get &com &data))
+    (println* &(Lens.set &com @&data @"no"))
+    (println* &(Lens.over &com @&data &reverse))
     (println* &(Prism.over &(Prism.compose &(the (Prism Address String) (Lens.to-prism &com)) &frst) @&data &(fn [a] (Char.random))))
   )
 )
