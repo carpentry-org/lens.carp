@@ -5,8 +5,8 @@
 
 ; should be f a b and work with higher orders, but oh well
 (deftype (Prism a b) [
-  get (Fn [&a] (Maybe &b))
-  set (Fn [a b] a)
+  -get (Fn [&a] (Maybe b))
+  -set (Fn [&a b] a)
 ])
 
 (defmodule Lens
@@ -27,10 +27,10 @@
     (let [transformed (~f (get l p))]
       (set l p transformed)))
 
-  ;(defn to-prism [l]
-  ;  (Prism.init
-  ;    (fn [a] (Maybe.Just (get l a)))
-  ;    @(-set l)))
+  (defn to-prism [l]
+    (Prism.init
+      (fn [a] (Maybe.Just @(get l a)))
+      @(-set l)))
 
   (defndynamic for- [t el]
     (list 'Lens.init
@@ -43,23 +43,29 @@
 )
 
 (defmodule Prism
+  (defn get [l el]
+    (~(-get l) el))
+
+  (defn set [l el v]
+    (~(-set l) el v))
+
   (defn compose [ab bc]
     (Prism.init
       (fn [a]
-        (match (~(get ab) a)
+        (match (get ab a)
           (Maybe.Nothing) (Maybe.Nothing)
-          (Maybe.Just b) (~(get bc) b)))
+          (Maybe.Just b) (get bc &b)))
       (fn [a c]
-        (match (~(get ab) &a)
-          (Maybe.Nothing) a
+        (match (get ab a)
+          (Maybe.Nothing) @a
           (Maybe.Just b)
-            (let [inner (~(set bc) @b c)]
-              (~(set ab) a inner))))))
+            (let [inner (set bc &b c)]
+              (set ab a inner))))))
 
-  (defn over [l p f]
-    (match (~(get l) &p)
-      (Maybe.Nothing) p
+  (defn update [l p f]
+    (match (get l p)
+      (Maybe.Nothing) @p
       (Maybe.Just a)
         (let [transformed (~f a)]
-          (~(set l) p transformed))))
+          (set l p transformed))))
 )
