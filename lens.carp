@@ -23,7 +23,7 @@
         (let [inner (set bc (get ab a) c)]
           (set ab a inner)))))
 
-  (defn update [l p f]
+  (defn over [l p f]
     (let [transformed (~f (get l p))]
       (set l p transformed)))
 
@@ -62,7 +62,7 @@
             (let [inner (set bc &b c)]
               (set ab a inner))))))
 
-  (defn update [l p f]
+  (defn over [l p f]
     (match (get l p)
       (Maybe.Nothing) @p
       (Maybe.Just a)

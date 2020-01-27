@@ -21,7 +21,7 @@ A simple Lens library for Carp.
            data (Address.init @"Berlin" (Pair.init @"Paul-Lincke-Ufer" 10))]
     (IO.println &(str (Lens.get &comp &data)))
     (IO.println &(str &(Lens.set &comp &data @"Maybachufer")))
-    (IO.println &(str &(Lens.update &comp &data &reverse)))
+    (IO.println &(str &(Lens.over &comp &data &reverse)))
   )
 )
 ```
