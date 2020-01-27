@@ -1,14 +1,18 @@
 (load "lens.carp")
 
-(deftype Address [city String street (Pair String Int)])
+(deftype Street [num Int name String])
+(deftype Address [city String street Street])
 
 (defn main []
   (let-do [addr (Lens.for Address street)
-           stre (Lens.for Pair a)
-           comp (Lens.compose &addr &stre)
-           data (Address.init @"Berlin" (Pair.init @"Paul-Lincke-Ufer" 10))]
-    (println* &(~(Lens.get &comp) &data))
-    (println* &(~(Lens.set &comp) @&data @"no"))
-    (println* &(Lens.over &comp @&data &(fn [a] (reverse &a))))
+           stre (Lens.for Street name)
+           com (Lens.compose &addr &stre)
+           data (Address.init @"Berlin" (Street.init 10 @"Paul-Lincke-Ufer"))
+           frst (Prism.init (fn [s] (if (empty? s) (Maybe.Nothing) (Maybe.Just (head s))))
+                            (fn [s c] (fmt "%c%s" c &(tail &s))))]
+    (println* &(~(Lens.get &com) &data))
+    (println* &(~(Lens.set &com) @&data @"no"))
+    (println* &(Lens.over &com @&data &(fn [a] (reverse &a))))
+    (println* &(Prism.over &(Prism.compose &(the (Prism Address String) (Lens.to-prism &com)) &frst) @&data &(fn [a] (Char.random))))
   )
 )
