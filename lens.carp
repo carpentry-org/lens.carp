@@ -1,30 +1,33 @@
 (deftype (Lens a b) [
-  get (Fn [&a] b)
-  set (Fn [a b] a)
+  get- (Fn [&a] b)
+  set- (Fn [a b] a)
 ])
 
 ; should be f a b and work with higher orders, but oh well
 (deftype (Prism a b) [
-  get (Fn [&a] (Maybe b))
-  set (Fn [a b] a)
+  get- (Fn [&a] (Maybe b))
+  set- (Fn [a b] a)
 ])
 
 (defmodule Lens
+  (defn get [l a] (~(get- l) a))
+  (defn set [l a b] (~(set- l) a b))
+
   (defn compose [ab bc]
     (Lens.init
-      (fn [a] (~(get bc) &(~(get ab) a)))
+      (fn [a] (get bc &(get ab a)))
       (fn [a c]
-        (let [inner (~(set bc) (~(get ab) &a) c)]
-          (~(set ab) a inner)))))
+        (let [inner (set bc (get ab &a) c)]
+          (set ab a inner)))))
 
   (defn over [l p f]
-    (let [transformed (~f (~(get l) &p))]
-      (~(set l) p transformed)))
+    (let [transformed (~f (get l &p))]
+      (set l p transformed)))
 
   (defn to-prism [l]
     (Prism.init
-      (fn [a] (Maybe.Just (~(get l) a)))
-      @(set l)))
+      (fn [a] (Maybe.Just (get l a)))
+      @(set- l)))
 
   (defmacro for [t el]
     (list 'Lens.init
@@ -33,23 +36,26 @@
 )
 
 (defmodule Prism
+  (defn get [p a] (~(get- p) a))
+  (defn set [p a b] (~(set- p) a b))
+
   (defn compose [ab bc]
     (Prism.init
       (fn [a]
-        (match (~(get ab) a)
+        (match (get ab a)
           (Maybe.Nothing) (Maybe.Nothing)
-          (Maybe.Just b) (~(get bc) &b)))
+          (Maybe.Just b) (get bc &b)))
       (fn [a c]
-        (match (~(get ab) &a)
+        (match (get ab &a)
           (Maybe.Nothing) a
           (Maybe.Just b)
-            (let [inner (~(set bc) b c)]
-              (~(set ab) a inner))))))
+            (let [inner (set bc b c)]
+              (set ab a inner))))))
 
   (defn over [l p f]
-    (match (~(get l) &p)
+    (match (get l &p)
       (Maybe.Nothing) p
       (Maybe.Just a)
         (let [transformed (~f a)]
-          (~(set l) p transformed))))
+          (set l p transformed))))
 )
