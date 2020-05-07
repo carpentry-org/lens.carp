@@ -26,13 +26,10 @@
       (fn [a] (Maybe.Just (~(get l) a)))
       @(set l)))
 
-  (defndynamic for- [t el]
+  (defmacro for [t el]
     (list 'Lens.init
       (list 'fn ['a] (list 'copy (list (Symbol.prefix t el) 'a)))
-      (Symbol.prefix t (Symbol.join ['set- el]))))
-
-  (defmacro for [t el]
-    (Lens.for- t el))
+      (Symbol.prefix t (Symbol.concat ['set- el]))))
 )
 
 (defmodule Prism
