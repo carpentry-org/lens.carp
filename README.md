@@ -1,8 +1,10 @@
 # lens
 
-*Early WIP, also includes an implementation for Prisms on Maybes only*
+A simple Lens and Prism library for Carp.
 
-A simple Lens library for Carp.
+The implementation of lenses and prisms is too general and does not follow
+the laws (i.e. you can construct lenses and prisms that shouldn’t work), but I
+think this is useful anyway.
 
 ## Usage
 
