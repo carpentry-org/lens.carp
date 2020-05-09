@@ -57,4 +57,13 @@
       (Maybe.Just a)
         (let [transformed (~f a)]
           (set l p transformed))))
+
+  (defmacro for [t el]
+    (let [constructor (Symbol.prefix t el)]
+      (list 'Prism.init
+        (list 'fn ['a]
+          (list 'match '(copy a)
+            (list constructor 'x) '(Maybe.Just x)
+            '_ '(Maybe.Nothing)))
+        (list 'fn ['a 'b] (list constructor 'b)))))
 )
