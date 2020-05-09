@@ -3,7 +3,6 @@
   set- (Fn [a b] a)
 ])
 
-; should be f a b and work with higher orders, but oh well
 (deftype (Prism a b) [
   get- (Fn [&a] (Maybe b))
   set- (Fn [a b] a)
