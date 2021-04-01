@@ -25,6 +25,17 @@ think this is useful anyway.
 )
 ```
 
+It also provides you with helpers to construct `Prism`s for `Array` and `Map`
+types, using:
+
+```clojure
+; will construct a prism for the second element of an array
+(Prism.Array.for 1)
+
+; will construct a prism for the map key "hello"
+(Prism.Map.for "hello")
+```
+
 <hr/>
 
 Have fun!
