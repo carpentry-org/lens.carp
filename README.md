@@ -9,7 +9,7 @@ think this is useful anyway.
 ## Usage
 
 ```clojure
-(load "git@github.com:hellerve/lens.carp@master")
+(load "git@github.com:carpentry-org/lens.carp@master")
 
 (deftype Address [city String street (Pair Int String)])
 
