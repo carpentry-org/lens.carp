@@ -1,0 +1,23 @@
+(load "lens.carp")
+
+(deftype Street
+  (NumberAndName [(Pair Int String)])
+  (TwoNumbers [(Pair Int Int)])
+  (Else [(Array (Map String String))]))
+
+(deftype Address [city String
+                  street Street])
+
+(use-all Lens Prism)
+
+(defn main []
+  (let-do [data (Address.init @"New York City"
+                              (Street.Else [{@"Property" @"Unparseable"}]))
+           address-street (Lens.for Address street)
+           connector (Prism.for Street Else)
+           street-name (Prism.Array.for 0)
+           name-value (Prism.Map.for "Property")
+           com (compose &(to-prism &address-street)
+                        &(compose &connector &(compose &street-name &name-value)))]
+    (println* &(get &com &data))
+    (println* &(set &com data @"Override!"))))

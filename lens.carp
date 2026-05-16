@@ -1,38 +1,25 @@
-(deftype (Lens a b) [
-  get- (Fn [&a] b)
-  set- (Fn [a b] a)
-])
+(deftype (Lens a b) [get- (Fn [&a] b)
+                     set- (Fn [a b] a)])
 
-(deftype (Prism a b) [
-  get- (Fn [&a] (Maybe b))
-  set- (Fn [a b] a)
-])
+(deftype (Prism a b) [get- (Fn [&a] (Maybe b))
+                      set- (Fn [a b] a)])
 
 (defmodule Lens
   (defn get [l a] (~(get- l) a))
   (defn set [l a b] (~(set- l) a b))
 
   (defn compose [ab bc]
-    (Lens.init
-      (fn [a] (get bc &(get ab a)))
-      (fn [a c]
-        (let [inner (set bc (get ab &a) c)]
-          (set ab a inner)))))
+    (Lens.init (fn [a] (get bc &(get ab a)))
+               (fn [a c] (let [inner (set bc (get ab &a) c)] (set ab a inner)))))
 
-  (defn over [l p f]
-    (let [transformed (~f (get l &p))]
-      (set l p transformed)))
+  (defn over [l p f] (let [transformed (~f (get l &p))] (set l p transformed)))
 
-  (defn to-prism [l]
-    (Prism.init
-      (fn [a] (Maybe.Just (get l a)))
-      @(set- l)))
+  (defn to-prism [l] (Prism.init (fn [a] (Maybe.Just (get l a))) @(set- l)))
 
   (defmacro for [t el]
     `(Lens.init
       (fn [a] (copy (%(Symbol.prefix t el) a)))
-      %(Symbol.prefix t (Symbol.concat ['set- el]))))
-)
+      %(Symbol.prefix t (Symbol.concat ['set- el])))))
 
 (defmodule Prism
   (defn get [p a] (~(get- p) a))
@@ -47,37 +34,23 @@
       (fn [a c]
         (match (get ab &a)
           (Maybe.Nothing) a
-          (Maybe.Just b)
-            (let [inner (set bc b c)]
-              (set ab a inner))))))
+          (Maybe.Just b) (let [inner (set bc b c)] (set ab a inner))))))
 
   (defn over [l p f]
     (match (get l &p)
       (Maybe.Nothing) p
-      (Maybe.Just a)
-        (let [transformed (~f a)]
-          (set l p transformed))))
+      (Maybe.Just a) (let [transformed (~f a)] (set l p transformed))))
 
   (defmacro for [t el]
     (let [constructor (Symbol.prefix t el)]
       `(Prism.init
-        (fn [a]
-          (match-ref a
-            (%constructor x) (Maybe.Just @x)
-            _ (Maybe.Nothing)))
+        (fn [a] (match-ref a (%constructor x) (Maybe.Just @x) _ (Maybe.Nothing)))
         (fn [a b] (%constructor b)))))
 
   (defmodule Array
     (defmacro for [idx]
-      `(Prism.init
-        (fn [a] (Array.nth a %idx))
-        (fn [a b] (Array.aset a %idx b))))
-  )
+      `(Prism.init (fn [a] (Array.nth a %idx)) (fn [a b] (Array.aset a %idx b)))))
 
   (defmodule Map
     (defmacro for [k]
-      `(Prism.init
-        (fn [m] (Map.get-maybe m %k))
-        (fn [m v] (Map.put m %k &v))))
-  )
-)
+      `(Prism.init (fn [m] (Map.get-maybe m %k)) (fn [m v] (Map.put m %k &v))))))
