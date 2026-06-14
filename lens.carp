@@ -5,26 +5,43 @@
                       set- (Fn [a b] a)])
 
 (defmodule Lens
+  (doc get "Gets a value by focusing through a lens.")
   (defn get [l a] (~(get- l) a))
+  (doc set
+    "Sets the focused value inside a structure, returning the updated structure.")
   (defn set [l a b] (~(set- l) a b))
 
+  (doc compose
+    "Composes two lenses into one that focuses through both in sequence.")
   (defn compose [ab bc]
     (Lens.init (fn [a] (get bc &(get ab a)))
                (fn [a c] (let [inner (set bc (get ab &a) c)] (set ab a inner)))))
 
+  (doc over
+    "Applies a function to the focused value, returning the updated structure.")
   (defn over [l p f] (let [transformed (~f (get l &p))] (set l p transformed)))
 
+  (doc to-prism
+    "Converts a lens to a prism. The resulting prism’s get always returns Just.")
   (defn to-prism [l] (Prism.init (fn [a] (Maybe.Just (get l a))) @(set- l)))
 
+  (doc for
+    "Creates a lens for a field of a deftype. Usage: `(Lens.for MyType field-name)`.")
   (defmacro for [t el]
     `(Lens.init
       (fn [a] (copy (%(Symbol.prefix t el) a)))
       %(Symbol.prefix t (Symbol.concat ['set- el])))))
 
 (defmodule Prism
+  (doc get
+    "Gets a value by focusing through a prism, returning Nothing if the focus doesn’t match.")
   (defn get [p a] (~(get- p) a))
+  (doc set
+    "Sets the focused value inside a structure, returning the updated structure.")
   (defn set [p a b] (~(set- p) a b))
 
+  (doc compose
+    "Composes two prisms into one that focuses through both in sequence.")
   (defn compose [ab bc]
     (Prism.init
       (fn [a]
@@ -36,11 +53,15 @@
           (Maybe.Nothing) a
           (Maybe.Just b) (let [inner (set bc b c)] (set ab a inner))))))
 
+  (doc over
+    "Applies a function to the focused value if present, otherwise returns the structure unchanged.")
   (defn over [l p f]
     (match (get l &p)
       (Maybe.Nothing) p
       (Maybe.Just a) (let [transformed (~f a)] (set l p transformed))))
 
+  (doc for
+    "Creates a prism for a variant of a sum type. Usage: `(Prism.for MyType VariantName)`.")
   (defmacro for [t el]
     (let [constructor (Symbol.prefix t el)]
       `(Prism.init
@@ -48,9 +69,13 @@
         (fn [a b] (%constructor b)))))
 
   (defmodule Array
+    (doc for
+      "Creates a prism for an array element at a given index. Usage: `(Prism.Array.for 0)`.")
     (defmacro for [idx]
       `(Prism.init (fn [a] (Array.nth a %idx)) (fn [a b] (Array.aset a %idx b)))))
 
   (defmodule Map
+    (doc for
+      "Creates a prism for a map value at a given key. Usage: `(Prism.Map.for \"key\")`.")
     (defmacro for [k]
       `(Prism.init (fn [m] (Map.get-maybe m %k)) (fn [m v] (Map.put m %k &v))))))

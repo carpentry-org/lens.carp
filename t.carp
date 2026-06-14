@@ -1,23 +1,232 @@
+(load "Test.carp")
 (load "lens.carp")
 
-(deftype Street
-  (NumberAndName [(Pair Int String)])
-  (TwoNumbers [(Pair Int Int)])
-  (Else [(Array (Map String String))]))
+(use Test)
 
-(deftype Address [city String
-                  street Street])
+; --- Test types ---
 
-(use-all Lens Prism)
+(deftype Point [x Int
+                y Int])
+(defmodule Point (defn = [a b] (and (= (x a) (x b)) (= (y a) (y b)))))
+(implements = Point.=)
 
-(defn main []
-  (let-do [data (Address.init @"New York City"
-                              (Street.Else [{@"Property" @"Unparseable"}]))
-           address-street (Lens.for Address street)
-           connector (Prism.for Street Else)
-           street-name (Prism.Array.for 0)
-           name-value (Prism.Map.for "Property")
-           com (compose &(to-prism &address-street)
-                        &(compose &connector &(compose &street-name &name-value)))]
-    (println* &(get &com &data))
-    (println* &(set &com data @"Override!"))))
+(deftype Line [start Point
+               end Point])
+(defmodule Line
+  (defn = [a b] (and (Point.= (start a) (start b)) (Point.= (end a) (end b)))))
+(implements = Line.=)
+
+(deftype Shape
+  (Circle [Int])
+  (Rect [(Pair Int Int)]))
+(defmodule Shape
+  (defn = [a b]
+    (match-ref a
+      (Circle x) (match-ref b (Circle y) (= x y) _ false)
+      (Rect x) (match-ref b (Rect y) (= x y) _ false))))
+(implements = Shape.=)
+
+(deftype Container [name String
+                    shape Shape])
+(defmodule Container
+  (defn = [a b] (and (= (name a) (name b)) (Shape.= (shape a) (shape b)))))
+(implements = Container.=)
+
+(deftype Holder [items (Array (Map String String))])
+(defmodule Holder (defn = [a b] (= (items a) (items b))))
+(implements = Holder.=)
+
+; --- Tests ---
+
+(deftest test
+  ; Lens.for + Lens.get
+  (let [lx (Lens.for Point x)
+        data (Point.init 1 2)]
+    (assert-equal test
+      1
+      (Lens.get &lx &data)
+      "Lens.get extracts the focused field"))
+
+  (let [ly (Lens.for Point y)
+        data (Point.init 1 2)]
+    (assert-equal test
+      2
+      (Lens.get &ly &data)
+      "Lens.get works on different fields"))
+
+  ; Lens.set
+  (let [lx (Lens.for Point x)]
+    (assert-equal test
+      &(Point.init 10 2)
+      &(Lens.set &lx (Point.init 1 2) 10)
+      "Lens.set replaces the focused field"))
+
+  (let [ly (Lens.for Point y)]
+    (assert-equal test
+      &(Point.init 1 20)
+      &(Lens.set &ly (Point.init 1 2) 20)
+      "Lens.set leaves other fields unchanged"))
+
+  ; Lens.over
+  (let [lx (Lens.for Point x)]
+    (assert-equal test
+      &(Point.init 10 2)
+      &(Lens.over &lx (Point.init 5 2) &(fn [a] (* a 2)))
+      "Lens.over applies a function to the focused field"))
+
+  ; Lens.compose get
+  (let [ls (Lens.for Line start)
+        lx (Lens.for Point x)
+        com (Lens.compose &ls &lx)
+        data (Line.init (Point.init 1 2) (Point.init 3 4))]
+    (assert-equal test
+      1
+      (Lens.get &com &data)
+      "composed lens get focuses through nested structures"))
+
+  ; Lens.compose set
+  (let [ls (Lens.for Line start)
+        lx (Lens.for Point x)
+        com (Lens.compose &ls &lx)]
+    (assert-equal test
+      &(Line.init (Point.init 99 2) (Point.init 3 4))
+      &(Lens.set &com (Line.init (Point.init 1 2) (Point.init 3 4)) 99)
+      "composed lens set modifies through nested structures"))
+
+  ; Lens.compose over
+  (let [ls (Lens.for Line start)
+        ly (Lens.for Point y)
+        com (Lens.compose &ls &ly)]
+    (assert-equal test
+      &(Line.init (Point.init 1 12) (Point.init 3 4))
+      &(Lens.over &com
+                  (Line.init (Point.init 1 2) (Point.init 3 4))
+                  &(fn [a] (+ a 10)))
+      "composed lens over applies through nested structures"))
+
+  ; Lens.to-prism
+  (let [lx (Lens.for Point x)
+        px (Lens.to-prism &lx)
+        data (Point.init 5 10)]
+    (assert-equal test
+      &(Maybe.Just 5)
+      &(Prism.get &px &data)
+      "to-prism get always returns Just"))
+
+  ; Prism.for get matching
+  (let [pc (Prism.for Shape Circle)
+        data (Shape.Circle 42)]
+    (assert-equal test
+      &(Maybe.Just 42)
+      &(Prism.get &pc &data)
+      "Prism.get returns Just for matching variant"))
+
+  ; Prism.for get non-matching
+  (let [pc (Prism.for Shape Circle)
+        data (Shape.Rect (Pair.init 3 4))]
+    (assert-nothing test
+                    &(Prism.get &pc &data)
+                    "Prism.get returns Nothing for non-matching variant"))
+
+  ; Prism.for works on different variants
+  (let [pr (Prism.for Shape Rect)
+        data (Shape.Rect (Pair.init 3 4))]
+    (assert-equal test
+      &(Maybe.Just (Pair.init 3 4))
+      &(Prism.get &pr &data)
+      "Prism.for works on different variants"))
+
+  ; Prism.set
+  (let [pc (Prism.for Shape Circle)]
+    (assert-equal test
+      &(Shape.Circle 99)
+      &(Prism.set &pc (Shape.Circle 0) 99)
+      "Prism.set constructs a new value"))
+
+  ; Prism.over matching
+  (let [pc (Prism.for Shape Circle)]
+    (assert-equal test
+      &(Shape.Circle 20)
+      &(Prism.over &pc (Shape.Circle 10) &(fn [a] (* a 2)))
+      "Prism.over applies function when variant matches"))
+
+  ; Prism.over non-matching
+  (let [pc (Prism.for Shape Circle)]
+    (assert-equal test
+      &(Shape.Rect (Pair.init 3 4))
+      &(Prism.over &pc (Shape.Rect (Pair.init 3 4)) &(fn [a] (* a 2)))
+      "Prism.over returns unchanged when variant does not match"))
+
+  ; Prism.compose matching
+  (let [l-shape (Lens.for Container shape)
+        p-circle (Prism.for Shape Circle)
+        com (Prism.compose &(Lens.to-prism &l-shape) &p-circle)]
+    (assert-equal test
+      &(Maybe.Just 42)
+      &(Prism.get &com &(Container.init @"test" (Shape.Circle 42)))
+      "composed prism focuses through struct into sum type"))
+
+  ; Prism.compose non-matching
+  (let [l-shape (Lens.for Container shape)
+        p-circle (Prism.for Shape Circle)
+        com (Prism.compose &(Lens.to-prism &l-shape) &p-circle)]
+    (assert-nothing test
+                    &(Prism.get &com
+                                &(Container.init @"test"
+                                                 (Shape.Rect (Pair.init 1 2))))
+                    "composed prism returns Nothing when inner prism misses"))
+
+  ; Prism.compose set
+  (let [l-shape (Lens.for Container shape)
+        p-circle (Prism.for Shape Circle)
+        com (Prism.compose &(Lens.to-prism &l-shape) &p-circle)]
+    (assert-equal test
+      &(Container.init @"x" (Shape.Circle 99))
+      &(Prism.set &com (Container.init @"x" (Shape.Circle 0)) 99)
+      "composed prism set modifies through the full chain"))
+
+  ; Prism.compose over
+  (let [l-shape (Lens.for Container shape)
+        p-circle (Prism.for Shape Circle)
+        com (Prism.compose &(Lens.to-prism &l-shape) &p-circle)]
+    (assert-equal test
+      &(Container.init @"x" (Shape.Circle 20))
+      &(Prism.over &com
+                   (Container.init @"x" (Shape.Circle 10))
+                   &(fn [a] (* a 2)))
+      "composed prism over applies through the full chain"))
+
+  ; Prism.Array.for + Prism.Map.for in a compose chain (get)
+  (let [l-items (Lens.for Holder items)
+        p-idx (Prism.Array.for 0)
+        p-key (Prism.Map.for "name")
+        com (Prism.compose &(Lens.to-prism &l-items)
+                           &(Prism.compose &p-idx &p-key))
+        data (Holder.init [{@"name" @"Alice"}])]
+    (assert-equal test
+      &(Maybe.Just @"Alice")
+      &(Prism.get &com &data)
+      "Array.for and Map.for compose to focus into nested collections"))
+
+  ; Prism.Array.for + Prism.Map.for in a compose chain (set)
+  (let [l-items (Lens.for Holder items)
+        p-idx (Prism.Array.for 0)
+        p-key (Prism.Map.for "name")
+        com (Prism.compose &(Lens.to-prism &l-items)
+                           &(Prism.compose &p-idx &p-key))
+        data (Holder.init [{@"name" @"Alice"}])]
+    (assert-equal test
+      &(Holder.init [{@"name" @"Bob"}])
+      &(Prism.set &com data @"Bob")
+      "Array.for and Map.for compose to set into nested collections"))
+
+  ; Map.for returns Nothing for missing key
+  (let [l-items (Lens.for Holder items)
+        p-idx (Prism.Array.for 0)
+        p-key (Prism.Map.for "missing")
+        com (Prism.compose &(Lens.to-prism &l-items)
+                           &(Prism.compose &p-idx &p-key))
+        data (Holder.init [{@"name" @"Alice"}])]
+    (assert-nothing test
+                    &(Prism.get &com &data)
+                    "Map.for returns Nothing for missing key in compose chain")))
