@@ -24,6 +24,11 @@ jobs:
           set -euo pipefail
           carp -b lens.carp
 
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          carp -x t.carp
+
       - name: Install angler
         run: |
           set -euo pipefail
